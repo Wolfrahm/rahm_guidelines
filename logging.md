@@ -17,7 +17,7 @@ The library reads these environment variables at init.
 |----------------------|----------------------------------------------------|---------|
 | `RAHM_APPLICATION`   | `application` label. Required.              | —       |
 | `RAHM_ENVIRONMENT`   | `environment` label. Required.              | —       |
-| `RAHM_LOG_SEVERITY`  | Minimum severity emitted. Entries below are dropped. Accepts the five severities or `NONE` (suppresses all output; for tests). | `INFO`  |
+| `RAHM_LOG_SEVERITY`  | Minimum severity emitted. Entries below are dropped. Accepts the five severities or `none` (suppresses all output; for tests). | `info`  |
 | `RAHM_LOG_FORMAT`    | `json` (wire format) or `text` (colored human-readable). | `json`  |
 | `RAHM_LOG_TRACE_ID`  | `enabled` or `disabled`. When `disabled`, `trace_id` is not bound, propagated, or emitted. | `enabled` |
 
@@ -35,18 +35,18 @@ Five levels:
 
 | Severity  | Use when                                                |
 |-----------|---------------------------------------------------------|
-| `DEBUG`   | Diagnostics. |
-| `INFO`    | Normal events worth recording.                          |
-| `WARNING` | Something unexpected, but the operation still succeeded.|
-| `ERROR`   | An operation failed; the process keeps running.         |
-| `FATAL`   | Unrecoverable; the process is about to exit. |
+| `debug`   | Diagnostics. |
+| `info`    | Normal events worth recording.                          |
+| `warning` | Something unexpected, but the operation still succeeded.|
+| `error`   | An operation failed; the process keeps running.         |
+| `fatal`   | Unrecoverable; the process is about to exit. |
 
-Severity values are always upper-case strings on the wire. Entries below the minimum severity (`RAHM_LOG_SEVERITY`) are dropped at the source.
+Severity values are always lower-case strings on the wire. Entries below the minimum severity (`RAHM_LOG_SEVERITY`) are dropped at the source.
 
 ## 5. Wire format
 
 - UTF-8 JSON, one entry per line, ending in `\n`. No pretty-printing, no comments.
-- Timestamps are RFC 3339 UTC with nanoseconds: `2026-06-14T08:42:11.123456789Z`.
+- Timestamps are RFC 3339 UTC with milliseconds: `2026-06-14T08:42:11.123Z`.
 - Aim for entries under 64 KiB. If the serialized entry would exceed that, the library replaces the largest top-level field's value with `{"truncated": true, "original_bytes": N}`, then the next-largest, until the entry fits. Entries are never split or dropped.
 
 The output format is controlled by `RAHM_LOG_FORMAT`. `text` is colored, human-readable output for local development only; `json` is the wire format above.
@@ -55,6 +55,7 @@ Text mode also trims and re-lays out a few fields to save terminal real estate:
 
 - `timestamp` is omitted on normal entries (kept on uncaught exceptions and panics).
 - `file` and `line` are appended to the message inline — e.g. `user logged in - main.py:85` — rather than printed as separate fields.
+- `severity` may be rendered upper-case for readability.
 
 ## 6. Schema
 
@@ -107,13 +108,13 @@ Recommended prefixes for common domains:
 
 - `http_*` for HTTP request/response details — `http_method`, `http_path`, `http_status`, `http_duration_ms`.
 - `db_*` for database calls — `db_statement`, `db_duration_ms`, `db_table`.
-- `kafka_*` for Kafka context — `kafka_topic`, `kafka_partition`, `kafka_offset`.
+- `stream_*` for event-stream context (Kafka, Fluvio, …) — `stream_topic`, `stream_partition`, `stream_offset`.
 - `error_*` for exception details on system errors — `error_type`, `error_message`, `error_stack_trace`.
 - `job_*` / `run_*` for batch context — `job_id`, `run_id`.
 
 ### 6.5 Field rename
 
-A customer's pipeline might expect different names — `app` instead of `application`, `msg` instead of `message`. The library accepts a `{canonical: wire}` map at init and applies it just before writing JSON. App code never changes; only the output does. In Python this is done with the custom `logging.Formatter`.
+A customer's pipeline might expect different names — `app` instead of `application`, `msg` instead of `message`. The library's output formatter — in Python a custom `logging.Formatter` — accepts a `{canonical: wire}` map and applies it just before writing JSON.
 
 - Any field can be renamed, standard or custom.
 - Default: no renames — canonical names go to the wire.
@@ -158,7 +159,7 @@ Other languages map `with` to their idiom for scoped cleanup.
 Each library ships ready-made scope wrappers:
 
 - **HTTP request** (Starlette, Robyn, Falcon, …): binds `trace_id` and HTTP context (e.g. `http_method`, `http_path`) at request entry. `trace_id` comes from the `X-Trace-Id` request header; if absent, the library generates a lowercase ULID. If authentication identifies a user, `user_id` is added.
-- **Kafka / Fluvio consumer**: binds `trace_id` (from the `x-trace-id` header, or a generated lowercase ULID if absent) and message context (`kafka_*` or `fluvio_*` fields — topic, partition, offset).
+- **Kafka / Fluvio consumer**: binds `trace_id` (from the `x-trace-id` header, or a generated lowercase ULID if absent) and message context (`stream_*` fields — topic, partition, offset).
 - **Batch / job entry**: binds run context (e.g. `job_id`, `run_id`) and a generated `trace_id` (lowercase ULID).
 
 Set `RAHM_LOG_TRACE_ID=disabled` to disable `trace_id` entirely.
@@ -171,21 +172,21 @@ Each domain restricts which severities and optional fields appear in an entry by
 
 | Domain        | Severities    | Optional fields                                                      |
 |---------------|---------------|----------------------------------------------------------------------|
-| `system`      | DEBUG–FATAL   | All available fields. |
-| `auth`        | INFO, WARNING | INFO: `trace_id`, `user_id`. WARNING: all standard and custom fields.|
-| `transaction` | INFO, WARNING | `trace_id`, `resource_id`.                                           |
-| `metric`      | INFO, WARNING | `trace_id`, `resource_id`.                                           |
+| `system`      | debug–fatal   | All available fields. |
+| `auth`        | info, warning | info: `trace_id`, `user_id`. warning: all standard and custom fields.|
+| `transaction` | info, warning | `trace_id`, `resource_id`.                                           |
+| `metric`      | info, warning | `trace_id`, `resource_id`.                                           |
 
 Rules:
 
-- DEBUG, ERROR, and FATAL are only valid with `domain=system`. Otherwise the library coerces `domain` to `system` and emits a warning, so the call site can be fixed.
+- debug, error, and fatal are only valid with `domain=system`. Otherwise the library coerces `domain` to `system` and emits a warning, so the call site can be fixed.
 - Per-call overrides: `include=[fields…]` keeps scope fields the domain would drop; `exclude=[fields…]` drops scope fields the domain would keep. Both names are reserved and can't be used as custom field names.
 
 ## 9. Errors and exceptions
 
 When you log a system error or exception, the library captures the relevant details into a set of `error_*` fields. The exact names and count vary by language and runtime — typically the error type/class, message, and stack trace. Stack traces, when present, are escaped strings with newlines as `\n`.
 
-When called inside an `except` block (or equivalent), `rahm.log.error(...)` and `rahm.log.fatal(...)` automatically capture the active exception into `error_*` fields and set `domain=system`. Business failures with expected causes (card declined, validation rejection) are not errors — log them with their natural domain at INFO or WARNING.
+When called inside an `except` block (or equivalent), `rahm.log.error(...)` and `rahm.log.fatal(...)` automatically capture the active exception into `error_*` fields and set `domain=system`. Business failures with expected causes (card declined, validation rejection) are not errors — log them with their natural domain at info or warning.
 
 Example: a payment provider returning 500 or timing out is a system error — `rahm.log.error('payment_api_unreachable', 'payment provider timed out')`. The same provider declining a card is a business failure — `rahm.log.warning('payment_declined', 'payment declined', domain='transaction', reason='insufficient_funds')`.
 
@@ -193,4 +194,4 @@ Example: a payment provider returning 500 or timing out is a system error — `r
 
 The library installs the language's global error handlers on init so any uncaught failure produces a uniform log entry. In Python: `sys.excepthook`, `threading.excepthook`, and the asyncio loop exception handler.
 
-The resulting entry has `domain=system`, `event=uncaught_exception`, with the `error_*` fields set as above. `file` and `line` are omitted — the stack trace carries the location. Severity is `FATAL` if the process is about to exit, `ERROR` if it keeps running.
+The resulting entry has `domain=system`, `event=uncaught_exception`, with the `error_*` fields set as above. `file` and `line` are omitted — the stack trace carries the location. Severity is `fatal` if the process is about to exit, `error` if it keeps running.
