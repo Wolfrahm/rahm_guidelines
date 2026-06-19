@@ -15,13 +15,11 @@ The library reads these environment variables at init.
 
 | Variable             | Sets                                               | Default |
 |----------------------|----------------------------------------------------|---------|
-| `RAHM_APPLICATION`   | `application` label. Required.              | —       |
-| `RAHM_ENVIRONMENT`   | `environment` label. Required.              | —       |
+| `RAHM_APPLICATION`   | `application` label.                        | `unknown` |
+| `RAHM_ENVIRONMENT`   | `environment` label.                        | `unknown` |
 | `RAHM_LOG_SEVERITY`  | Minimum severity emitted. Entries below are dropped. Accepts the five severities or `none` (suppresses all output; for tests). | `info`  |
 | `RAHM_LOG_FORMAT`    | `json` (wire format) or `text` (colored human-readable). | `json`  |
 | `RAHM_LOG_TRACE_ID`  | `enabled` or `disabled`. When `disabled`, `trace_id` is not bound, propagated, or emitted. | `enabled` |
-
-`RAHM_APPLICATION` and `RAHM_ENVIRONMENT` are required. The library refuses to start if either env var is missing.
 
 All env-var *values* are case-insensitive.
 
