@@ -110,11 +110,11 @@ Recommended prefixes for common domains:
 - `error_*` for exception details on system errors — `error_type`, `error_message`, `error_stack_trace`.
 - `job_*` / `run_*` for batch context — `job_id`, `run_id`.
 
-### 6.5 Field rename
+### 6.5 Output customization
 
-A customer's pipeline might expect different names — `app` instead of `application`, `msg` instead of `message`. The library's output formatter — in Python a custom `logging.Formatter` — accepts a `{canonical: wire}` map and applies it just before writing JSON.
+A customer's pipeline might expect different conventions — `msg` instead of `message`, a different timestamp format, and so on. Each language library exposes its own idiomatic mechanism for transforming the output just before writing JSON.
 
-- Any field can be renamed, standard or custom.
+- Any field can be renamed or reformatted, standard or custom.
 - Default: no renames — canonical names go to the wire.
 - All library rules (mandatory fields, collisions, allow-lists, reserved names) operate on canonical names.
 
