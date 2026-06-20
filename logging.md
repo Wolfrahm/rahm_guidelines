@@ -107,7 +107,7 @@ Recommended prefixes for common domains:
 - `http_*` for HTTP request/response details — `http_method`, `http_path`, `http_status`, `http_duration_ms`.
 - `db_*` for database calls — `db_statement`, `db_duration_ms`, `db_table`.
 - `stream_*` for event-stream context (Kafka, Fluvio, …) — `stream_topic`, `stream_partition`, `stream_offset`.
-- `error_*` for exception details on system errors — `error_type`, `error_message`, `error_stack_trace`.
+- `error_*` for exception details on system errors — `error_type`, `error_message`, `error_trace`.
 - `job_*` / `run_*` for batch context — `job_id`, `run_id`.
 
 ### 6.5 Output customization
