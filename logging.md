@@ -51,7 +51,7 @@ The output format is controlled by `RAHM_LOG_FORMAT`. `text` is colored, human-r
 
 Text mode also trims and re-lays out a few fields to save terminal real estate:
 
-- `timestamp` is omitted on normal entries (kept on uncaught exceptions and panics).
+- `timestamp` is omitted on normal entries.
 - `file` and `line` are appended to the message inline — e.g. `user logged in - main.py:85` — rather than printed as separate fields.
 - `severity` may be rendered upper-case for readability.
 
