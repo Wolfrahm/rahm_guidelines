@@ -18,7 +18,7 @@ The library reads these environment variables at init.
 | `RAHM_APPLICATION`   | `application` label.                        | `unknown` |
 | `RAHM_ENVIRONMENT`   | `environment` label.                        | `unknown` |
 | `RAHM_LOG_SEVERITY`  | Minimum severity emitted. Entries below are dropped. Accepts the five severities or `none` (suppresses all output; for tests). | `info`  |
-| `RAHM_LOG_FORMAT`    | `json` (wire format) or `text` (colored human-readable). | `json`  |
+| `RAHM_LOG_FORMAT`    | `json` (wire format), `text` (colored human-readable), or `logfmt` (compact `key=value`, useful for LLM consumption). | `json`  |
 | `RAHM_LOG_TRACE_ID`  | `enabled` or `disabled`. When `disabled`, `trace_id` is not bound, propagated, or emitted. | `enabled` |
 
 All env-var *values* are case-insensitive.
@@ -41,18 +41,27 @@ Five levels:
 
 Severity values are always lower-case strings on the wire. Entries below the minimum severity (`RAHM_LOG_SEVERITY`) are dropped at the source.
 
-## 5. Wire format
+## 5. Output formats
 
-- UTF-8 JSON, one entry per line, ending in `\n`. No pretty-printing, no comments.
+The output format is controlled by `RAHM_LOG_FORMAT`. Two rules apply to all modes:
+
 - Timestamps are RFC 3339 UTC with milliseconds: `2026-06-14T08:42:11.123Z`.
-- Aim for entries under 64 KiB. If the serialized entry would exceed that, the library replaces the largest top-level field's value with `{"truncated": true, "original_bytes": N}`, then the next-largest, until the entry fits. Entries are never split or dropped.
+- Aim for entries under 64 KiB. If a serialized entry would exceed that, the library replaces the largest top-level field's value with a truncation marker indicating the original byte count, then the next-largest, until the entry fits. Entries are never split or dropped.
 
-The output format is controlled by `RAHM_LOG_FORMAT`. `text` is colored, human-readable output for local development only; `json` is the wire format above.
+### 5.1 json (default)
 
-Text mode also trims and re-lays out a few fields to save terminal real estate:
+UTF-8 JSON, one entry per line, ending in `\n`. No pretty-printing, no comments. The canonical wire format.
+
+### 5.2 logfmt
+
+One line of `key=value` pairs per entry, with quoted strings and `\n`-escaped newlines. Useful when an LLM is the primary log consumer.
+
+### 5.3 text
+
+Colored, human-readable output for local development. Trims and re-lays out a few fields:
 
 - `timestamp` is omitted on normal entries.
-- `file` and `line` are appended to the message inline — e.g. `user logged in - main.py:85` — rather than printed as separate fields.
+- `file` and `line` are appended to the message inline — e.g. `user logged in - main.py:85`.
 - `severity` may be rendered upper-case for readability.
 
 ## 6. Schema
