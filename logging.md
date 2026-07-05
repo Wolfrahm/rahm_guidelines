@@ -20,6 +20,7 @@ The library reads these environment variables at init.
 | `RAHM_LOG_SEVERITY`  | Minimum severity emitted. Entries below are dropped. Accepts the five severities or `none` (suppresses all output; for tests). | `info`  |
 | `RAHM_LOG_FORMAT`    | `json` (wire format), `text` (colored human-readable), or `logfmt` (compact `key=value`, useful for LLM consumption). | `json`  |
 | `RAHM_LOG_TRACE_ID`  | `enabled` or `disabled`. When `disabled`, `trace_id` is not bound, propagated, or emitted. | `enabled` |
+| `RAHM_LOG_QUIET_PATHS` | Comma-separated request paths whose successful HTTP access entries drop from `info` to `debug`, so routine health/metrics polling doesn't flood the logs. Matched exactly; downgrade applies only when response status < 400. | `/_health` |
 
 All env-var *values* are case-insensitive.
 
@@ -165,9 +166,11 @@ Other languages map `with` to their idiom for scoped cleanup.
 
 Each library ships ready-made scope wrappers:
 
-- **HTTP request** (Starlette, Robyn, Falcon, …): binds `trace_id` and HTTP context (e.g. `http_method`, `http_path`) at request entry. `trace_id` comes from the `X-Trace-Id` request header; if absent, the library generates a lowercase ULID. If authentication identifies a user, `user_id` is added.
+- **HTTP request** (Starlette, Robyn, Falcon, …): binds `trace_id` and HTTP context (e.g. `http_method`, `http_path`) at request entry, and emits one `http_request_completed` access entry (`http_status`, `http_duration_ms`) at request exit. `trace_id` comes from the `X-Trace-Id` request header; if absent, the library generates a lowercase ULID. If authentication identifies a user, `user_id` is added.
 - **Kafka / Fluvio consumer**: binds `trace_id` (from the `x-trace-id` header, or a generated lowercase ULID if absent) and message context (`stream_*` fields — topic, partition, offset).
 - **Batch / job entry**: binds run context (e.g. `job_id`, `run_id`) and a generated `trace_id` (lowercase ULID).
+
+**Quiet paths.** The HTTP wrapper logs the access entry for paths listed in `RAHM_LOG_QUIET_PATHS` (default `/_health`) at `debug` instead of `info`, so load-balancer health checks and metrics scrapes stay out of the logs at the default threshold but reappear under `RAHM_LOG_SEVERITY=debug`. The downgrade applies only when the response status is below 400 — a failing health check (`503`) or errored scrape still logs at `info`, and an uncaught exception still logs at `error`. Paths are matched exactly against the request path.
 
 Set `RAHM_LOG_TRACE_ID=disabled` to disable `trace_id` entirely.
 
